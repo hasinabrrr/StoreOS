@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Search, Bell, Globe } from "lucide-react";
 import { OfflineSyncBar } from "./OfflineSyncBar";
 
@@ -33,18 +34,21 @@ export function TopHeader() {
           <span>বাংলা</span>
         </button>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200 dark:border-slate-800">
+        {/* User Profile / Login Link */}
+        <Link
+          href="/login"
+          title="Switch Account / Login"
+          className="flex items-center gap-2.5 pl-2 border-l border-slate-200 dark:border-slate-800 hover:opacity-80 transition-opacity"
+        >
           <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-blue-600 text-white flex items-center justify-center font-semibold text-xs">
             JD
           </div>
           <div className="text-left text-xs">
             <p className="font-semibold text-slate-900 dark:text-white leading-none">John Doe</p>
-            <p className="text-[10px] text-slate-500 mt-0.5">Owner</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Owner (Switch)</p>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );
 }
-
