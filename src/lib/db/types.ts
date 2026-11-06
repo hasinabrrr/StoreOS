@@ -144,9 +144,69 @@ export interface ExpenseRecord extends BaseEntity {
   note?: string;
 }
 
+export interface PurchaseOrderItem {
+  localId: string;
+  orderLocalId: string;
+  productId: string;
+  productName: string;
+  qty: number;
+  unitCostMinor: number;
+  totalMinor: number;
+}
+
+export interface PurchaseOrder extends BaseEntity {
+  businessId: string;
+  branchId: string;
+  orderNo: string;
+  supplierLocalId: string;
+  supplierName: string;
+  status: 'ordered' | 'received' | 'cancelled';
+  totalMinor: number;
+  items: PurchaseOrderItem[];
+  receivedAt?: string | null;
+}
+
+export interface SalesReturnItem {
+  productId: string;
+  productName: string;
+  qty: number;
+  unitPriceMinor: number;
+  refundMinor: number;
+}
+
+export interface SalesReturn extends BaseEntity {
+  businessId: string;
+  branchId: string;
+  invoiceLocalId: string;
+  invoiceNo: string;
+  customerName?: string;
+  refundMinor: number;
+  reason: string;
+  items: SalesReturnItem[];
+}
+
+export interface EmployeeRecord extends BaseEntity {
+  businessId: string;
+  branchId: string;
+  name: string;
+  role: 'Manager' | 'Cashier' | 'Stock Keeper' | 'Sales Associate';
+  phone: string;
+  salaryMinor: number;
+  status: 'active' | 'inactive';
+}
+
+export interface BranchRecord extends BaseEntity {
+  businessId: string;
+  name: string;
+  address: string;
+  phone?: string;
+  isMain: boolean;
+  isActive: boolean;
+}
+
 export interface SyncQueueItem {
   id?: number;
-  entityType: 'product' | 'customer' | 'stockMovement' | 'salesInvoice' | 'payment' | 'expense' | 'supplier';
+  entityType: 'product' | 'customer' | 'stockMovement' | 'salesInvoice' | 'payment' | 'expense' | 'supplier' | 'purchaseOrder' | 'salesReturn' | 'employee' | 'branch';
   entityLocalId: string;
   op: 'insert' | 'update' | 'delete';
   payload: string; // JSON string

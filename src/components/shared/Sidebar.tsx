@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -18,6 +19,7 @@ import {
   Settings,
   RefreshCw,
 } from "lucide-react";
+import { db } from "@/lib/db/dexie/schema";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -37,11 +39,23 @@ const navigationItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [branchName, setBranchName] = useState("Main Branch");
+  const [branchAddress, setBranchAddress] = useState("Shop No. 12, Green Road");
+
+  useEffect(() => {
+    async function loadBranch() {
+      const bName = await db.meta.get("branchName");
+      const bAddr = await db.meta.get("branchAddress");
+      if (bName?.value) setBranchName(bName.value);
+      if (bAddr?.value) setBranchAddress(bAddr.value);
+    }
+    loadBranch();
+  }, []);
 
   return (
     <aside className="w-64 bg-[#0B1527] text-slate-300 flex flex-col h-screen select-none shrink-0 border-r border-slate-800">
       {/* Brand Header */}
-      <div className="p-5 flex items-center gap-3 border-b border-slate-800/80">
+      <Link href="/" className="p-5 flex items-center gap-3 border-b border-slate-800/80 hover:bg-slate-800/20 transition-colors">
         <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
           <ShoppingCart className="w-5 h-5 text-white" />
         </div>
@@ -49,7 +63,7 @@ export function Sidebar() {
           <h1 className="text-lg font-bold text-white tracking-tight leading-none">StoreOS</h1>
           <p className="text-[11px] text-slate-400 mt-1">Store Management System</p>
         </div>
-      </div>
+      </Link>
 
       {/* Navigation Items */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 custom-scrollbar">
@@ -76,14 +90,22 @@ export function Sidebar() {
 
       {/* Branch & Sync Status Footer */}
       <div className="p-4 border-t border-slate-800/80 bg-[#091120]">
-        <div className="flex items-center justify-between text-xs mb-1.5">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-semibold text-white">Main Branch</span>
+        <Link
+          href="/branches"
+          title="Click to Switch Branch"
+          className="block group hover:bg-slate-800/50 p-2 -m-2 rounded-lg transition-colors"
+        >
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-semibold text-white group-hover:text-blue-400 transition-colors">
+                {branchName}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 group-hover:text-white">▼</span>
           </div>
-          <span className="text-[10px] text-slate-400">▼</span>
-        </div>
-        <p className="text-[11px] text-slate-400 truncate">Shop No. 12, Green Road</p>
+          <p className="text-[11px] text-slate-400 truncate">{branchAddress}</p>
+        </Link>
 
         <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
           <span className="flex items-center gap-1">
@@ -96,4 +118,3 @@ export function Sidebar() {
     </aside>
   );
 }
-

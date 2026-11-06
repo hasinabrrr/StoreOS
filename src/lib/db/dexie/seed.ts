@@ -257,6 +257,172 @@ export async function seedInitialDemoData() {
 
   await db.salesInvoices.bulkAdd(demoInvoices);
 
+  // Seed sample suppliers
+  const supplierCount = await db.suppliers.count();
+  if (supplierCount === 0) {
+    await db.suppliers.bulkAdd([
+      {
+        localId: uuidv4(),
+        businessId,
+        name: 'Rahman Traders Ltd.',
+        phone: '+880 1711 002233',
+        address: 'Khatungonj, Chittagong',
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        name: 'Bengal Grain Distributors',
+        phone: '+880 1822 445566',
+        address: 'Kawran Bazar, Dhaka',
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        name: 'Apex Fast Foods & Essentials',
+        phone: '+880 1933 778899',
+        address: 'Tejgaon I/A, Dhaka',
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+  }
+
+  // Seed sample expenses
+  const expenseCount = await db.expenses.count();
+  if (expenseCount === 0) {
+    await db.expenses.bulkAdd([
+      {
+        localId: uuidv4(),
+        businessId,
+        branchId,
+        category: 'Shop Rent',
+        amountMinor: 2500000, // 25,000.00
+        note: 'Monthly shop space rent',
+        syncStatus: 'synced',
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        branchId,
+        category: 'Electricity & Utilities',
+        amountMinor: 320000, // 3,200.00
+        note: 'DESCO electricity bill for April',
+        syncStatus: 'synced',
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        branchId,
+        category: 'Packaging & Bags',
+        amountMinor: 150000, // 1,500.00
+        note: 'Biodegradable shopping carry bags',
+        syncStatus: 'synced',
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+        updatedAt: now,
+      },
+    ]);
+  }
+
+  // Seed sample employees
+  const employeeCount = await db.employees.count();
+  if (employeeCount === 0) {
+    await db.employees.bulkAdd([
+      {
+        localId: uuidv4(),
+        businessId,
+        branchId,
+        name: 'John Doe',
+        role: 'Manager',
+        phone: '+880 1700 112233',
+        salaryMinor: 3500000,
+        status: 'active',
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        branchId,
+        name: 'Fahim Hasan',
+        role: 'Cashier',
+        phone: '+880 1800 223344',
+        salaryMinor: 1800000,
+        status: 'active',
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        branchId,
+        name: 'Tanvir Hossain',
+        role: 'Stock Keeper',
+        phone: '+880 1900 334455',
+        salaryMinor: 1500000,
+        status: 'active',
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+  }
+
+  // Seed sample branches
+  const branchCount = await db.branches.count();
+  if (branchCount === 0) {
+    await db.branches.bulkAdd([
+      {
+        localId: uuidv4(),
+        businessId,
+        name: 'Main Branch',
+        address: 'Shop No. 12, Green Road, Dhanmondi, Dhaka',
+        phone: '+880 1712 345678',
+        isMain: true,
+        isActive: true,
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        name: 'Uttara Branch',
+        address: 'Sector 3, Jasimuddin Avenue, Uttara, Dhaka',
+        phone: '+880 1812 987654',
+        isMain: false,
+        isActive: true,
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        localId: uuidv4(),
+        businessId,
+        name: 'Chittagong Outlet',
+        address: 'GEC Circle, Nasirabad, Chittagong',
+        phone: '+880 1912 456789',
+        isMain: false,
+        isActive: true,
+        syncStatus: 'synced',
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+  }
+
   // Setup initial business meta
   await db.meta.bulkPut([
     { key: 'businessId', value: businessId },
