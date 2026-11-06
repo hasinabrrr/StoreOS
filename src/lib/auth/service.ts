@@ -1,4 +1,5 @@
 import { supabase } from '../db/supabase/client';
+import { db } from '../db/dexie/schema';
 import type { UserProfile } from '../db/types';
 
 const OFFLINE_SESSION_KEY = 'storeos_cached_session';
@@ -103,7 +104,17 @@ export class AuthService {
           return session;
         }
       } catch (err: any) {
-        throw new Error(err.message || 'Failed to sign up in cloud auth');
+        const msg = err?.message || '';
+        const isNetworkOrFetchIssue =
+          msg.toLowerCase().includes('failed to fetch') ||
+          msg.toLowerCase().includes('fetch') ||
+          msg.toLowerCase().includes('network');
+
+        // If it's a real validation error from auth server, report it
+        if (!isNetworkOrFetchIssue) {
+          throw new Error(msg || 'Failed to sign up in cloud auth');
+        }
+        // If network/fetch fails, fall through to seamless offline registration
       }
     }
 
@@ -122,6 +133,15 @@ export class AuthService {
       expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
     };
     this.cacheSession(offlineSession);
+
+    // Persist store & owner details in local Dexie database
+    try {
+      await db.meta.put({ key: 'storeName', value: storeName });
+      await db.meta.put({ key: 'ownerName', value: fullName });
+    } catch {
+      // safe fallback
+    }
+
     return offlineSession;
   }
 
