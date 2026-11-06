@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingCart, Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { ShoppingCart, Lock, Mail, ArrowRight, ShieldCheck, UserPlus } from "lucide-react";
 import { AuthService } from "@/lib/auth/service";
 
 export default function LoginPage() {
@@ -101,6 +102,14 @@ export default function LoginPage() {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        <div className="text-center text-xs text-slate-500 pt-1">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="text-blue-600 font-bold hover:underline inline-flex items-center gap-1">
+            <UserPlus className="w-3.5 h-3.5 inline" />
+            <span>Create Store Account</span>
+          </Link>
+        </div>
 
         {/* Offline Badge */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">

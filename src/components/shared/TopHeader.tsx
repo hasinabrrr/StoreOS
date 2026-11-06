@@ -45,6 +45,11 @@ export function TopHeader() {
   // Profile Menu State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentBranch, setCurrentBranch] = useState("Main Branch");
+  const [currentUser, setCurrentUser] = useState({
+    fullName: "John Doe",
+    email: "owner@storeos.com",
+    role: "Owner",
+  });
 
   // Language State
   const [language, setLanguage] = useState<"en" | "bn">("bn");
@@ -90,6 +95,16 @@ export function TopHeader() {
       // Saved language
       const savedLang = localStorage.getItem("storeos_lang") as "en" | "bn";
       if (savedLang) setLanguage(savedLang);
+
+      // Authenticated User
+      const session = AuthService.getCachedSession();
+      if (session?.user) {
+        setCurrentUser({
+          fullName: session.user.fullName || "Store User",
+          email: session.user.email || "user@storeos.com",
+          role: session.user.role ? (session.user.role.charAt(0).toUpperCase() + session.user.role.slice(1)) : "Owner",
+        });
+      }
     }
 
     loadHeaderData();
@@ -358,11 +373,16 @@ export function TopHeader() {
             className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800 hover:opacity-80 transition-opacity"
           >
             <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-              JD
+              {currentUser.fullName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase() || "SO"}
             </div>
             <div className="text-left text-xs hidden sm:block">
-              <p className="font-semibold text-slate-900 dark:text-white leading-none">John Doe</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Owner</p>
+              <p className="font-semibold text-slate-900 dark:text-white leading-none">{currentUser.fullName}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{currentUser.role}</p>
             </div>
             <ChevronDown className="w-3 h-3 text-slate-400" />
           </button>
@@ -370,8 +390,8 @@ export function TopHeader() {
           {isProfileOpen && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 space-y-1 z-50 text-xs">
               <div className="p-2.5 bg-slate-50 rounded-xl mb-1">
-                <p className="font-bold text-slate-900">John Doe</p>
-                <p className="text-[11px] text-slate-500">owner@storeos.com</p>
+                <p className="font-bold text-slate-900">{currentUser.fullName}</p>
+                <p className="text-[11px] text-slate-500">{currentUser.email}</p>
                 <div className="mt-1.5 pt-1.5 border-t border-slate-200/80 flex items-center gap-1 text-[10px] text-blue-600 font-semibold">
                   <GitBranch className="w-3 h-3" />
                   <span>{currentBranch}</span>

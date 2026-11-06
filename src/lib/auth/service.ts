@@ -42,6 +42,78 @@ export class AuthService {
   }
 
   /**
+   * Register a new user in Supabase Auth & local storage
+   */
+  static async signUp(
+    email: string,
+    password: string,
+    fullName: string,
+    storeName: string = 'My Store',
+    role: 'owner' | 'manager' | 'cashier' = 'owner'
+  ): Promise<AuthSession> {
+    const isOnline = typeof window !== 'undefined' ? window.navigator.onLine : false;
+    const businessId = `biz-${Date.now().toString(36)}`;
+    const branchId = 'main-branch';
+
+    if (isOnline) {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              role,
+              business_id: businessId,
+              store_name: storeName,
+            },
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data?.user) {
+          const session: AuthSession = {
+            user: {
+              id: data.user.id,
+              businessId,
+              role,
+              branchId,
+              fullName,
+              email,
+            },
+            token: data.session?.access_token,
+            isOfflineSession: false,
+            expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
+          };
+          this.cacheSession(session);
+          return session;
+        }
+      } catch (err: any) {
+        throw new Error(err.message || 'Failed to sign up in cloud auth');
+      }
+    }
+
+    // Offline / Local Registration fallback
+    const offlineSession: AuthSession = {
+      user: {
+        id: `usr-${Date.now().toString(36)}`,
+        businessId,
+        role,
+        branchId,
+        fullName,
+        email,
+      },
+      isOfflineSession: true,
+      expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
+    };
+    this.cacheSession(offlineSession);
+    return offlineSession;
+  }
+
+  /**
    * Fast offline-first login: verifies network, or falls back to valid cached credentials/demo
    */
   static async login(email: string, password?: string): Promise<AuthSession> {
