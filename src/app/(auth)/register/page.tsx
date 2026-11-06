@@ -17,6 +17,9 @@ export default function RegisterPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -38,19 +41,38 @@ export default function RegisterPage() {
         role
       );
 
-      setSuccessMsg(
-        session.isOfflineSession
-          ? "Account registered locally! Offline session active."
-          : "Account created successfully! Redirecting..."
-      );
-
-      setTimeout(() => {
-        router.push("/");
-      }, 1200);
+      if (session.needsEmailVerification) {
+        setNeedsVerification(true);
+        setSuccessMsg(
+          `Verification email sent to ${email}! Please check your inbox and confirm your address to complete registration.`
+        );
+      } else {
+        setSuccessMsg(
+          session.isOfflineSession
+            ? "Account registered locally! Offline session active."
+            : "Account created successfully! Redirecting..."
+        );
+        setTimeout(() => {
+          router.push("/");
+        }, 1200);
+      }
     } catch (err: any) {
       setErrorMsg(err?.message || "Failed to create account. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) return;
+    setResending(true);
+    try {
+      await AuthService.resendVerificationEmail(email);
+      setSuccessMsg(`A fresh verification link was just emailed to ${email}.`);
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to resend email.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -84,8 +106,38 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Register Form */}
-        <form onSubmit={handleRegister} className="space-y-3.5 text-xs">
+        {needsVerification ? (
+          <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center mx-auto shadow-md">
+              <Mail className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Verify Your Email Address</h3>
+              <p className="text-xs text-slate-600 mt-1">
+                We sent a confirmation link to <span className="font-semibold text-slate-800">{email}</span>. Click the link in your email to activate your StoreOS account.
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold transition-all text-xs"
+              >
+                {resending ? "Sending..." : "Resend Verification Email"}
+              </button>
+              <Link
+                href="/login"
+                className="w-full py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl font-bold transition-all text-xs block"
+              >
+                Go to Sign In
+              </Link>
+            </div>
+          </div>
+        ) : (
+          /* Register Form */
+          <form onSubmit={handleRegister} className="space-y-3.5 text-xs">
           <div>
             <label className="font-bold text-slate-700 block mb-1">Store / Business Name</label>
             <div className="relative">
@@ -169,6 +221,7 @@ export default function RegisterPage() {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+        )}
 
         <div className="text-center text-xs text-slate-500 pt-1">
           Already have an account?{" "}
@@ -188,3 +241,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

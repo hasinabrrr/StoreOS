@@ -12,11 +12,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("password123");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [infoMsg, setInfoMsg] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
+    setInfoMsg("");
 
     try {
       await AuthService.login(email, password);
@@ -25,6 +28,38 @@ export default function LoginPage() {
       setErrorMsg(err?.message || "Failed to sign in");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setErrorMsg("Please enter your email address first.");
+      return;
+    }
+    setIsResetting(true);
+    setErrorMsg("");
+    setInfoMsg("");
+    try {
+      await AuthService.sendPasswordResetEmail(email);
+      setInfoMsg(`Password reset instructions have been sent to ${email}. Check your inbox.`);
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to send reset email.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) return;
+    setIsResetting(true);
+    setErrorMsg("");
+    try {
+      await AuthService.resendVerificationEmail(email);
+      setInfoMsg(`A fresh confirmation link has been sent to ${email}.`);
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to resend confirmation.");
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -46,8 +81,24 @@ export default function LoginPage() {
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium text-center">
-            {errorMsg}
+          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium text-center space-y-1.5">
+            <p>{errorMsg}</p>
+            {errorMsg.includes("confirmed") && (
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={isResetting}
+                className="text-[11px] text-blue-600 font-bold underline hover:text-blue-700 block mx-auto"
+              >
+                {isResetting ? "Sending..." : "Click here to resend verification email"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {infoMsg && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-medium text-center">
+            {infoMsg}
           </div>
         )}
 
@@ -88,9 +139,14 @@ export default function LoginPage() {
               <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600" />
               <span>Keep logged in offline</span>
             </label>
-            <span className="text-blue-600 font-semibold cursor-pointer hover:underline">
-              Forgot PIN?
-            </span>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={isResetting}
+              className="text-blue-600 font-semibold cursor-pointer hover:underline disabled:opacity-50"
+            >
+              {isResetting ? "Sending reset email..." : "Forgot Password / PIN?"}
+            </button>
           </div>
 
           <button

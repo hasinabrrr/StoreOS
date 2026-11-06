@@ -7,6 +7,7 @@ export interface AuthSession {
   user: UserProfile;
   token?: string;
   isOfflineSession: boolean;
+  needsEmailVerification?: boolean;
   expiresAt: number;
 }
 
@@ -67,6 +68,7 @@ export class AuthService {
               business_id: businessId,
               store_name: storeName,
             },
+            emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
           },
         });
 
@@ -75,6 +77,9 @@ export class AuthService {
         }
 
         if (data?.user) {
+          // In Supabase, if email confirmation is turned ON, data.session is null until user verifies via link
+          const needsVerification = !data.session;
+
           const session: AuthSession = {
             user: {
               id: data.user.id,
@@ -86,9 +91,15 @@ export class AuthService {
             },
             token: data.session?.access_token,
             isOfflineSession: false,
+            needsEmailVerification: needsVerification,
             expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
           };
-          this.cacheSession(session);
+
+          // Cache session if already verified or auto-confirmed
+          if (!needsVerification) {
+            this.cacheSession(session);
+          }
+
           return session;
         }
       } catch (err: any) {
@@ -107,10 +118,45 @@ export class AuthService {
         email,
       },
       isOfflineSession: true,
+      needsEmailVerification: false,
       expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
     };
     this.cacheSession(offlineSession);
     return offlineSession;
+  }
+
+  /**
+   * Resend signup email confirmation
+   */
+  static async resendVerificationEmail(email: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
+        },
+      });
+      if (error) throw new Error(error.message);
+      return true;
+    } catch (err: any) {
+      throw new Error(err.message || 'Failed to resend confirmation email');
+    }
+  }
+
+  /**
+   * Send password reset email
+   */
+  static async sendPasswordResetEmail(email: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login?reset=true` : undefined,
+      });
+      if (error) throw new Error(error.message);
+      return true;
+    } catch (err: any) {
+      throw new Error(err.message || 'Failed to send password reset email');
+    }
   }
 
   /**
@@ -126,25 +172,44 @@ export class AuthService {
           password: password || 'default123',
         });
 
-        if (data?.user && !error) {
+        if (error) {
+          if (error.message.toLowerCase().includes('email not confirmed')) {
+            throw new Error('Your email address has not been confirmed yet. Please check your inbox for the verification link.');
+          }
+          if (error.message.toLowerCase().includes('invalid login credentials')) {
+            throw new Error('Invalid email or password. Please verify your credentials or sign up.');
+          }
+          throw new Error(error.message);
+        }
+
+        if (data?.user) {
           const session: AuthSession = {
             user: {
               id: data.user.id,
               businessId: (data.user.user_metadata?.business_id as string) || 'demo-business-001',
               role: (data.user.user_metadata?.role as any) || 'owner',
               branchId: 'demo-branch-001',
-              fullName: data.user.user_metadata?.full_name || 'John Doe',
+              fullName: data.user.user_metadata?.full_name || 'Store User',
               email: data.user.email || email,
             },
             token: data.session?.access_token,
             isOfflineSession: false,
+            needsEmailVerification: false,
             expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30, // 30 days
           };
           this.cacheSession(session);
           return session;
         }
-      } catch {
-        // Fall back to offline cached session
+      } catch (err: any) {
+        // If it's a specific auth failure (wrong password, unconfirmed email), rethrow so user knows
+        if (
+          err.message.includes('confirmed') ||
+          err.message.includes('Invalid') ||
+          err.message.includes('password')
+        ) {
+          throw err;
+        }
+        // Fall back to offline cached session for network fetch issues
       }
     }
 
@@ -165,6 +230,7 @@ export class AuthService {
         email: email || 'owner@storeos.com',
       },
       isOfflineSession: true,
+      needsEmailVerification: false,
       expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
     };
     this.cacheSession(demoSession);
