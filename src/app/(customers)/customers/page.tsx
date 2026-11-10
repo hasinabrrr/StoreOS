@@ -17,6 +17,7 @@ import {
 import { db } from "@/lib/db/dexie/schema";
 import { CustomerService } from "@/lib/domain/customers/service";
 import { formatBDT, toMinorUnits } from "@/lib/domain/money";
+import { getBusinessId } from "@/lib/auth/context";
 import type { Customer, SalesInvoice } from "@/lib/db/types";
 
 export default function CustomersPage() {
@@ -39,7 +40,10 @@ export default function CustomersPage() {
   const [isPending, startTransition] = useTransition();
 
   const loadCustomers = async () => {
-    const list = await db.customers.toArray();
+    const businessId = getBusinessId();
+    const list = await db.customers
+      .filter((c) => c.businessId === businessId)
+      .toArray();
     setCustomers(list);
   };
 
@@ -55,7 +59,8 @@ export default function CustomersPage() {
           newCust.name,
           newCust.phone,
           newCust.address,
-          toMinorUnits(parseFloat(newCust.openingDue) || 0)
+          toMinorUnits(parseFloat(newCust.openingDue) || 0),
+          getBusinessId()
         );
         setIsAddModalOpen(false);
         setNewCust({ name: "", phone: "", address: "", openingDue: "0" });
@@ -75,7 +80,8 @@ export default function CustomersPage() {
         await CustomerService.collectDuePayment(
           selectedCustomer.localId,
           toMinorUnits(parseFloat(collectAmount) || 0),
-          collectMethod
+          collectMethod,
+          getBusinessId()
         );
         setIsCollectModalOpen(false);
         setSelectedCustomer(null);

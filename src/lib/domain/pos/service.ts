@@ -1,6 +1,7 @@
 import { db } from '@/lib/db/dexie/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { SyncQueueManager } from '@/lib/sync/queue';
+import { getBusinessId, getBranchId, getUserName } from '@/lib/auth/context';
 import type { SalesInvoice, SalesInvoiceItem, StockMovement, PaymentRecord } from '@/lib/db/types';
 
 export interface CartItem {
@@ -47,8 +48,9 @@ export class POSService {
   static async checkout(payload: CheckoutPayload): Promise<SalesInvoice> {
     const now = new Date().toISOString();
     const invoiceLocalId = uuidv4();
-    const businessId = payload.businessId || 'demo-business-001';
-    const branchId = payload.branchId || 'demo-branch-001';
+    const businessId = payload.businessId || getBusinessId();
+    const branchId = payload.branchId || getBranchId();
+    const cashierName = payload.cashierName || getUserName();
     const invoiceNo = this.generateOfflineInvoiceNumber('MB');
 
     let subtotalMinor = 0;
@@ -93,7 +95,7 @@ export class POSService {
       dueMinor,
       status,
       paymentMethod: payload.paymentMethod,
-      createdBy: payload.cashierName || 'John Doe',
+      createdBy: cashierName,
       clientGeneratedId,
       items: invoiceItems,
       syncStatus: 'pending',
@@ -149,7 +151,7 @@ export class POSService {
               qtyDelta: -item.qty,
               refType: 'sales_invoice',
               refId: invoiceLocalId,
-              createdBy: payload.cashierName || 'John Doe',
+              createdBy: cashierName,
               clientGeneratedId: uuidv4(),
               syncStatus: 'pending',
               createdAt: now,

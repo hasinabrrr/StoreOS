@@ -1,14 +1,23 @@
 import { db } from './schema';
 import { v4 as uuidv4 } from 'uuid';
+import { getBusinessId, getBranchId, getUserName } from '../../auth/context';
 import type { Product, Customer, SalesInvoice } from '../types';
 
 export async function seedInitialDemoData() {
-  const count = await db.products.count();
-  if (count > 0) return; // already seeded
+  const businessId = getBusinessId();
+  // Only auto-seed demo data if running in demo mode
+  if (businessId !== 'demo-business-001') {
+    return;
+  }
+
+  const branchId = getBranchId();
+  const ownerName = getUserName();
+
+  // Check if we already have data for this specific business
+  const existingProducts = await db.products.filter((p) => p.businessId === businessId).count();
+  if (existingProducts > 0) return; // already seeded for this business
 
   const now = new Date().toISOString();
-  const businessId = 'demo-business-001';
-  const branchId = 'demo-branch-001';
 
   // Seed sample products
   const demoProducts: Product[] = [
@@ -204,7 +213,7 @@ export async function seedInitialDemoData() {
       dueMinor: 0,
       status: 'paid',
       paymentMethod: 'cash',
-      createdBy: 'John Doe',
+      createdBy: ownerName,
       clientGeneratedId: uuidv4(),
       items: [],
       syncStatus: 'synced',
@@ -225,7 +234,7 @@ export async function seedInitialDemoData() {
       dueMinor: 245000,
       status: 'partial',
       paymentMethod: 'bkash',
-      createdBy: 'John Doe',
+      createdBy: ownerName,
       clientGeneratedId: uuidv4(),
       items: [],
       syncStatus: 'synced',
@@ -246,7 +255,7 @@ export async function seedInitialDemoData() {
       dueMinor: 0,
       status: 'paid',
       paymentMethod: 'cash',
-      createdBy: 'John Doe',
+      createdBy: ownerName,
       clientGeneratedId: uuidv4(),
       items: [],
       syncStatus: 'synced',
@@ -342,7 +351,7 @@ export async function seedInitialDemoData() {
         localId: uuidv4(),
         businessId,
         branchId,
-        name: 'John Doe',
+        name: ownerName,
         role: 'Manager',
         phone: '+880 1700 112233',
         salaryMinor: 3500000,
@@ -432,4 +441,98 @@ export async function seedInitialDemoData() {
     { key: 'lastSync', value: now },
   ]);
 }
+
+/**
+ * Explicitly load sample products for a user's store on demand
+ */
+export async function seedSampleProductsForStore(customBusinessId?: string) {
+  const businessId = customBusinessId || getBusinessId();
+  const now = new Date().toISOString();
+
+  const sampleProducts: Product[] = [
+    {
+      localId: uuidv4(),
+      businessId,
+      sku: 'SKU-RICE-5K',
+      barcode: '8901234567890',
+      name: 'Rice Premium (5kg)',
+      unit: 'kg',
+      purchasePriceMinor: 38000,
+      sellPriceMinor: 45000,
+      taxRate: 0,
+      hasVariants: false,
+      hasBatchTracking: false,
+      hasSerialTracking: false,
+      isActive: true,
+      currentStock: 25,
+      lowStockThreshold: 5,
+      syncStatus: 'synced',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      localId: uuidv4(),
+      businessId,
+      sku: 'SKU-OIL-1L',
+      barcode: '8901234567891',
+      name: 'Soybean Oil (1L)',
+      unit: 'ltr',
+      purchasePriceMinor: 15000,
+      sellPriceMinor: 18000,
+      taxRate: 0,
+      hasVariants: false,
+      hasBatchTracking: false,
+      hasSerialTracking: false,
+      isActive: true,
+      currentStock: 40,
+      lowStockThreshold: 10,
+      syncStatus: 'synced',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      localId: uuidv4(),
+      businessId,
+      sku: 'SKU-SUGAR-1K',
+      barcode: '8901234567895',
+      name: 'Sugar (1kg)',
+      unit: 'kg',
+      purchasePriceMinor: 10500,
+      sellPriceMinor: 12000,
+      taxRate: 0,
+      hasVariants: false,
+      hasBatchTracking: false,
+      hasSerialTracking: false,
+      isActive: true,
+      currentStock: 30,
+      lowStockThreshold: 5,
+      syncStatus: 'synced',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      localId: uuidv4(),
+      businessId,
+      sku: 'SKU-TEA-400',
+      barcode: '8901234567896',
+      name: 'Black Tea (400g)',
+      unit: 'pcs',
+      purchasePriceMinor: 18000,
+      sellPriceMinor: 22000,
+      taxRate: 0,
+      hasVariants: false,
+      hasBatchTracking: false,
+      hasSerialTracking: false,
+      isActive: true,
+      currentStock: 15,
+      lowStockThreshold: 4,
+      syncStatus: 'synced',
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
+
+  await db.products.bulkAdd(sampleProducts);
+}
+
 

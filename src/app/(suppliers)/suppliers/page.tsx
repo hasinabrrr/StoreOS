@@ -16,6 +16,7 @@ import {
 import { db } from "@/lib/db/dexie/schema";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueManager } from "@/lib/sync/queue";
+import { getBusinessId } from "@/lib/auth/context";
 import type { Supplier } from "@/lib/db/types";
 
 export default function SuppliersPage() {
@@ -30,7 +31,8 @@ export default function SuppliersPage() {
   const [isPending, startTransition] = useTransition();
 
   const loadSuppliers = async () => {
-    const list = await db.suppliers.toArray();
+    const businessId = getBusinessId();
+    const list = await db.suppliers.filter((s) => s.businessId === businessId).toArray();
     setSuppliers(list);
   };
 
@@ -46,7 +48,7 @@ export default function SuppliersPage() {
         const localId = uuidv4();
         const supplier: Supplier = {
           localId,
-          businessId: "demo-business-001",
+          businessId: getBusinessId(),
           name: newSupplier.name,
           phone: newSupplier.phone,
           address: newSupplier.address,

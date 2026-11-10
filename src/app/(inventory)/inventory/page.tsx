@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db/dexie/schema";
 import { InventoryService } from "@/lib/domain/inventory/service";
+import { getBusinessId, getBranchId } from "@/lib/auth/context";
 import type { Product, StockMovement } from "@/lib/db/types";
 
 export default function InventoryPage() {
@@ -29,10 +30,14 @@ export default function InventoryPage() {
   const [isPending, startTransition] = useTransition();
 
   const loadData = async () => {
-    const p = await db.products.toArray();
-    const m = await db.stockMovements.orderBy("createdAt").reverse().limit(50).toArray();
+    const businessId = getBusinessId();
+    const p = await db.products.filter((prod) => prod.businessId === businessId).toArray();
+    const m = await db.stockMovements
+      .filter((sm) => sm.businessId === businessId)
+      .reverse()
+      .toArray();
     setProducts(p);
-    setMovements(m);
+    setMovements(m.slice(0, 50));
   };
 
   useEffect(() => {
@@ -51,7 +56,7 @@ export default function InventoryPage() {
           delta,
           adjustmentType,
           selectedProduct.businessId,
-          "demo-branch-001",
+          getBranchId(),
           "manual_adjustment"
         );
         setIsAdjustModalOpen(false);

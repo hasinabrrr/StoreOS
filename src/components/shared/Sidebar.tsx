@@ -20,6 +20,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { db } from "@/lib/db/dexie/schema";
+import { getStoreName } from "@/lib/auth/context";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -39,11 +40,13 @@ const navigationItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [storeName, setStoreName] = useState("StoreOS");
   const [branchName, setBranchName] = useState("Main Branch");
   const [branchAddress, setBranchAddress] = useState("Shop No. 12, Green Road");
 
   useEffect(() => {
     async function loadBranch() {
+      setStoreName(getStoreName());
       const bName = await db.meta.get("branchName");
       const bAddr = await db.meta.get("branchAddress");
       if (bName?.value) setBranchName(bName.value);
@@ -56,12 +59,16 @@ export function Sidebar() {
     <aside className="w-64 bg-[#0B1527] text-slate-300 flex flex-col h-screen select-none shrink-0 border-r border-slate-800">
       {/* Brand Header */}
       <Link href="/" className="p-5 flex items-center gap-3 border-b border-slate-800/80 hover:bg-slate-800/20 transition-colors">
-        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
+        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20 shrink-0">
           <ShoppingCart className="w-5 h-5 text-white" />
         </div>
-        <div>
-          <h1 className="text-lg font-bold text-white tracking-tight leading-none">StoreOS</h1>
-          <p className="text-[11px] text-slate-400 mt-1">Store Management System</p>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-sm font-bold text-white tracking-tight leading-none truncate" title={storeName}>
+            {storeName}
+          </h1>
+          <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider mt-1">
+            StoreOS Retail
+          </p>
         </div>
       </Link>
 

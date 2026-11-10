@@ -16,6 +16,7 @@ import { db } from "@/lib/db/dexie/schema";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueManager } from "@/lib/sync/queue";
 import { formatBDT, toMinorUnits } from "@/lib/domain/money";
+import { getBusinessId, getBranchId } from "@/lib/auth/context";
 import type { ExpenseRecord } from "@/lib/db/types";
 
 const EXPENSE_CATEGORIES = [
@@ -41,7 +42,11 @@ export default function ExpensesPage() {
   });
 
   const loadExpenses = async () => {
-    const list = await db.expenses.orderBy("createdAt").reverse().toArray();
+    const businessId = getBusinessId();
+    const list = await db.expenses
+      .filter((e) => e.businessId === businessId)
+      .reverse()
+      .toArray();
     setExpenses(list);
   };
 
@@ -59,8 +64,8 @@ export default function ExpensesPage() {
 
         const record: ExpenseRecord = {
           localId,
-          businessId: "demo-business-001",
-          branchId: "demo-branch-001",
+          businessId: getBusinessId(),
+          branchId: getBranchId(),
           category: newExpense.category,
           amountMinor,
           note: newExpense.note,

@@ -17,6 +17,7 @@ import { db } from "@/lib/db/dexie/schema";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueManager } from "@/lib/sync/queue";
 import { formatBDT, toMinorUnits } from "@/lib/domain/money";
+import { getBusinessId, getStoreName } from "@/lib/auth/context";
 import type { SalesInvoice, SalesReturn, StockMovement, Product } from "@/lib/db/types";
 
 export default function SalesPage() {
@@ -29,7 +30,11 @@ export default function SalesPage() {
   const [isPending, startTransition] = useTransition();
 
   const loadInvoices = async () => {
-    const data = await db.salesInvoices.orderBy("createdAt").reverse().toArray();
+    const businessId = getBusinessId();
+    const data = await db.salesInvoices
+      .filter((inv) => inv.businessId === businessId)
+      .reverse()
+      .toArray();
     setInvoices(data);
   };
 
@@ -254,7 +259,7 @@ export default function SalesPage() {
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-mono space-y-2">
               <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                <p className="font-bold text-sm text-slate-900">StoreOS Retail</p>
+                <p className="font-bold text-sm text-slate-900">{getStoreName()}</p>
                 <p className="text-[10px] text-slate-500">{new Date(selectedInvoice.createdAt).toLocaleString()}</p>
                 <p className="text-[10px] text-slate-500">Customer: {selectedInvoice.customerName}</p>
               </div>

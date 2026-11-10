@@ -18,6 +18,9 @@ import {
 import { db } from "@/lib/db/dexie/schema";
 import { formatBDT, toMinorUnits, toMajorUnits } from "@/lib/domain/money";
 import { POSService, type CartItem } from "@/lib/domain/pos/service";
+import { getBusinessId, getStoreName, getUserName } from "@/lib/auth/context";
+import { seedSampleProductsForStore } from "@/lib/db/dexie/seed";
+import Link from "next/link";
 import type { Product, Customer, SalesInvoice } from "@/lib/db/types";
 
 export default function POSPage() {
@@ -34,8 +37,13 @@ export default function POSPage() {
   const [isPending, startTransition] = useTransition();
 
   const loadData = async () => {
-    const p = await db.products.filter((prod) => Boolean(prod.isActive)).toArray();
-    const c = await db.customers.toArray();
+    const businessId = getBusinessId();
+    const p = await db.products
+      .filter((prod) => Boolean(prod.isActive) && prod.businessId === businessId)
+      .toArray();
+    const c = await db.customers
+      .filter((cust) => cust.businessId === businessId)
+      .toArray();
     setProducts(p);
     setCustomers(c);
   };
@@ -105,6 +113,8 @@ export default function POSPage() {
           taxMinor: 0,
           paidMinor: effectivePaidMinor,
           paymentMethod,
+          businessId: getBusinessId(),
+          cashierName: getUserName(),
         });
 
         setCompletedInvoice(inv);
@@ -168,37 +178,68 @@ export default function POSPage() {
             </div>
 
             {/* Product Cards Grid (Matching Mobile / Desktop UI) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
-              {filteredProducts.map((p) => (
-                <div
-                  key={p.localId}
-                  onClick={() => addToCart(p)}
-                  className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 mb-2.5 font-medium text-xs group-hover:bg-blue-50/50 transition-colors">
-                      🛒 {p.unit}
-                    </div>
-                    <p className="font-semibold text-slate-900 text-xs line-clamp-1">{p.name}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">{p.sku}</p>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="font-bold text-slate-900 text-xs">
-                      {formatBDT(p.sellPriceMinor)}
-                    </span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                        p.currentStock <= p.lowStockThreshold
-                          ? "bg-rose-50 text-rose-600"
-                          : "bg-emerald-50 text-emerald-600"
-                      }`}
-                    >
-                      {p.currentStock} left
-                    </span>
-                  </div>
+            {filteredProducts.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center flex flex-col items-center justify-center space-y-3 my-auto">
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <ShoppingCart className="w-6 h-6" />
                 </div>
-              ))}
-            </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm">No Products In Catalog</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mt-1">
+                    Your store catalog is clean and empty. Add your store products or load sample items to start billing.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <Link
+                    href="/products"
+                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs"
+                  >
+                    + Add Product
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      await seedSampleProductsForStore();
+                      await loadData();
+                    }}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
+                  >
+                    Load Sample Products
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                {filteredProducts.map((p) => (
+                  <div
+                    key={p.localId}
+                    onClick={() => addToCart(p)}
+                    className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group"
+                  >
+                    <div>
+                      <div className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 mb-2.5 font-medium text-xs group-hover:bg-blue-50/50 transition-colors">
+                        🛒 {p.unit}
+                      </div>
+                      <p className="font-semibold text-slate-900 text-xs line-clamp-1">{p.name}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{p.sku}</p>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
+                      <span className="font-bold text-slate-900 text-xs">
+                        {formatBDT(p.sellPriceMinor)}
+                      </span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                          p.currentStock <= p.lowStockThreshold
+                            ? "bg-rose-50 text-rose-600"
+                            : "bg-emerald-50 text-emerald-600"
+                        }`}
+                      >
+                        {p.currentStock} left
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Side: Active Cart & Checkout Panel */}
@@ -388,8 +429,8 @@ export default function POSPage() {
             {/* Printable Bill Slip Representation */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-mono space-y-2">
               <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                <p className="font-bold text-sm text-slate-900">StoreOS Retail</p>
-                <p className="text-[10px] text-slate-500">Shop No. 12, Green Road</p>
+                <p className="font-bold text-sm text-slate-900">{getStoreName()}</p>
+                <p className="text-[10px] text-slate-500">Official Store Receipt</p>
                 <p className="text-[10px] text-slate-500">{completedInvoice.invoiceNo}</p>
               </div>
 

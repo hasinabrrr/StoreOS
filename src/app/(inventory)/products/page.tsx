@@ -19,6 +19,7 @@ import {
 import { db } from "@/lib/db/dexie/schema";
 import { InventoryService } from "@/lib/domain/inventory/service";
 import { formatBDT, toMinorUnits, toMajorUnits } from "@/lib/domain/money";
+import { seedSampleProductsForStore } from "@/lib/db/dexie/seed";
 import type { Product } from "@/lib/db/types";
 
 export default function ProductsPage() {
@@ -167,8 +168,29 @@ export default function ProductsPage() {
                 <tbody className="divide-y divide-slate-100">
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">
-                        No products found matching your filter.
+                      <td colSpan={7} className="py-12 text-center text-slate-500">
+                        <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                        <p className="font-semibold text-slate-800 text-sm">No products in your catalog yet</p>
+                        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                          Add your store&apos;s products or load sample items to start selling immediately.
+                        </p>
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                          <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold"
+                          >
+                            + Add Product
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await seedSampleProductsForStore();
+                              await loadProducts();
+                            }}
+                            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200"
+                          >
+                            Load Sample Products
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ) : (

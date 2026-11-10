@@ -89,12 +89,17 @@ export class AuthService {
               branchId,
               fullName,
               email,
+              storeName,
             },
             token: data.session?.access_token,
             isOfflineSession: false,
             needsEmailVerification: needsVerification,
             expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
           };
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('storeos_store_name', storeName);
+          }
 
           // Cache session if already verified or auto-confirmed
           if (!needsVerification) {
@@ -127,12 +132,17 @@ export class AuthService {
         branchId,
         fullName,
         email,
+        storeName,
       },
       isOfflineSession: true,
       needsEmailVerification: false,
       expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
     };
     this.cacheSession(offlineSession);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('storeos_store_name', storeName);
+    }
 
     // Persist store & owner details in local Dexie database
     try {
@@ -203,6 +213,7 @@ export class AuthService {
         }
 
         if (data?.user) {
+          const storeName = (data.user.user_metadata?.store_name as string) || 'StoreOS Retail';
           const session: AuthSession = {
             user: {
               id: data.user.id,
@@ -211,12 +222,16 @@ export class AuthService {
               branchId: 'demo-branch-001',
               fullName: data.user.user_metadata?.full_name || 'Store User',
               email: data.user.email || email,
+              storeName,
             },
             token: data.session?.access_token,
             isOfflineSession: false,
             needsEmailVerification: false,
             expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30, // 30 days
           };
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('storeos_store_name', storeName);
+          }
           this.cacheSession(session);
           return session;
         }

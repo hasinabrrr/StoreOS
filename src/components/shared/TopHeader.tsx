@@ -21,6 +21,7 @@ import {
 import { OfflineSyncBar } from "./OfflineSyncBar";
 import { db } from "@/lib/db/dexie/schema";
 import { AuthService } from "@/lib/auth/service";
+import { getBusinessId } from "@/lib/auth/context";
 import { formatBDT } from "@/lib/domain/money";
 import type { Product, Customer, SalesInvoice } from "@/lib/db/types";
 
@@ -61,15 +62,20 @@ export function TopHeader() {
   // Load notifications & branch on mount
   useEffect(() => {
     async function loadHeaderData() {
+      const businessId = getBusinessId();
+
       // Branch
       const bMeta = await db.meta.get("branchName");
       if (bMeta?.value) setCurrentBranch(bMeta.value);
 
-      // Notifications
+      // Notifications (isolated per business)
       const lowProds = await db.products
-        .filter((p) => p.currentStock <= p.lowStockThreshold)
+        .filter((p) => p.businessId === businessId && p.currentStock <= p.lowStockThreshold)
         .toArray();
-      const recentInv = await db.salesInvoices.orderBy("createdAt").reverse().limit(3).toArray();
+      const recentInv = await db.salesInvoices
+        .filter((inv) => inv.businessId === businessId)
+        .reverse()
+        .toArray();
 
       const notifs: typeof notifications = [];
       lowProds.slice(0, 3).forEach((p) => {
@@ -81,7 +87,7 @@ export function TopHeader() {
         });
       });
 
-      recentInv.forEach((inv) => {
+      recentInv.slice(0, 3).forEach((inv) => {
         notifs.push({
           id: inv.localId,
           title: `New sale: ${inv.invoiceNo} — ${formatBDT(inv.totalMinor)} (${inv.customerName || "Walk-in"})`,
@@ -150,22 +156,24 @@ export function TopHeader() {
 
     setIsSearchOpen(true);
     const q = val.toLowerCase();
+    const businessId = getBusinessId();
 
     const prods = await db.products
-      .filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q))
+      .filter((p) => p.businessId === businessId && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)))
       .limit(4)
       .toArray();
 
     const custs = await db.customers
-      .filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q))
+      .filter((c) => c.businessId === businessId && (c.name.toLowerCase().includes(q) || c.phone.includes(q)))
       .limit(3)
       .toArray();
 
     const invs = await db.salesInvoices
       .filter((i) =>
         Boolean(
-          i.invoiceNo.toLowerCase().includes(q) ||
-            (i.customerName && i.customerName.toLowerCase().includes(q))
+          i.businessId === businessId &&
+            (i.invoiceNo.toLowerCase().includes(q) ||
+              (i.customerName && i.customerName.toLowerCase().includes(q)))
         )
       )
       .limit(3)

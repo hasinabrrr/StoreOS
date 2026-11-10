@@ -16,16 +16,23 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db/dexie/schema";
 import { SyncQueueManager } from "@/lib/sync/queue";
+import { getStoreName, getBusinessId } from "@/lib/auth/context";
+import { seedSampleProductsForStore } from "@/lib/db/dexie/seed";
 
 export default function SettingsPage() {
-  const [storeName, setStoreName] = useState("StoreOS Main Store");
-  const [branchName, setBranchName] = useState("Shop No. 12, Green Road");
+  const [storeName, setStoreName] = useState("StoreOS Retail");
+  const [branchName, setBranchName] = useState("Main Branch");
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [actionMsg, setActionMsg] = useState("");
 
   useEffect(() => {
     async function checkState() {
+      setStoreName(getStoreName());
+      const bMeta = await db.meta.get("branchName");
+      if (bMeta?.value) setBranchName(bMeta.value);
+
       const pending = await SyncQueueManager.getPendingItems();
       setPendingSyncCount(pending.length);
     }
@@ -55,8 +62,31 @@ export default function SettingsPage() {
     setIsExporting(false);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleClearDemoData = async () => {
+    if (confirm("Remove all pre-built demo products, customers, and test sales?")) {
+      await db.products.filter((p) => p.businessId === "demo-business-001").delete();
+      await db.customers.filter((c) => c.businessId === "demo-business-001").delete();
+      await db.salesInvoices.filter((i) => i.businessId === "demo-business-001").delete();
+      await db.expenses.filter((e) => e.businessId === "demo-business-001").delete();
+      setActionMsg("Demo data cleared successfully! Your store is now clean.");
+      setTimeout(() => setActionMsg(""), 3000);
+    }
+  };
+
+  const handleLoadSamples = async () => {
+    await seedSampleProductsForStore();
+    setActionMsg("Sample products added to your store catalog!");
+    setTimeout(() => setActionMsg(""), 3000);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (typeof window !== "undefined") {
+      localStorage.setItem("storeos_store_name", storeName);
+    }
+    await db.meta.put({ key: "storeName", value: storeName });
+    await db.meta.put({ key: "branchName", value: branchName });
+
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
@@ -172,6 +202,35 @@ export default function SettingsPage() {
                   {isExporting ? "Exporting..." : "Download Backup"}
                 </button>
               </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div>
+                  <p className="font-semibold text-slate-900">Store Catalog & Sample Data</p>
+                  <p className="text-slate-500 text-[11px] mt-0.5">
+                    Load sample products or purge old pre-built demo records
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleLoadSamples}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs"
+                  >
+                    Load Sample Items
+                  </button>
+                  <button
+                    onClick={handleClearDemoData}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-semibold text-xs"
+                  >
+                    Clear Demo Data
+                  </button>
+                </div>
+              </div>
+
+              {actionMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold text-center">
+                  {actionMsg}
+                </div>
+              )}
             </div>
           </div>
         </main>

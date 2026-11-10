@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db/dexie/schema";
 import { formatBDT } from "@/lib/domain/money";
+import { getBusinessId } from "@/lib/auth/context";
 import type { SalesInvoice, Product } from "@/lib/db/types";
 
 export default function ReportsPage() {
@@ -25,8 +26,13 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function loadData() {
-      const inv = await db.salesInvoices.toArray();
-      const p = await db.products.toArray();
+      const businessId = getBusinessId();
+      const inv = await db.salesInvoices
+        .filter((i) => i.businessId === businessId)
+        .toArray();
+      const p = await db.products
+        .filter((prod) => prod.businessId === businessId)
+        .toArray();
       setInvoices(inv);
       setProducts(p);
     }

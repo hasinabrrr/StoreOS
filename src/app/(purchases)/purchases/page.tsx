@@ -17,6 +17,7 @@ import { db } from "@/lib/db/dexie/schema";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueManager } from "@/lib/sync/queue";
 import { formatBDT, toMinorUnits } from "@/lib/domain/money";
+import { getBusinessId, getBranchId } from "@/lib/auth/context";
 import type { PurchaseOrder, Supplier, Product, StockMovement } from "@/lib/db/types";
 
 export default function PurchasesPage() {
@@ -33,9 +34,17 @@ export default function PurchasesPage() {
   const [unitCost, setUnitCost] = useState("");
 
   const loadData = async () => {
-    const ords = await db.purchaseOrders.orderBy("createdAt").reverse().toArray();
-    const sups = await db.suppliers.toArray();
-    const prods = await db.products.toArray();
+    const businessId = getBusinessId();
+    const ords = await db.purchaseOrders
+      .filter((po) => po.businessId === businessId)
+      .reverse()
+      .toArray();
+    const sups = await db.suppliers
+      .filter((s) => s.businessId === businessId)
+      .toArray();
+    const prods = await db.products
+      .filter((p) => p.businessId === businessId)
+      .toArray();
     setOrders(ords);
     setSuppliers(sups);
     setProducts(prods);
@@ -70,8 +79,8 @@ export default function PurchasesPage() {
 
         const newOrder: PurchaseOrder = {
           localId: orderId,
-          businessId: "demo-business-001",
-          branchId: "demo-branch-001",
+          businessId: getBusinessId(),
+          branchId: getBranchId(),
           orderNo,
           supplierLocalId: supplier.localId,
           supplierName: supplier.name,

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db/dexie/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { SyncQueueManager } from '@/lib/sync/queue';
+import { getBusinessId } from '@/lib/auth/context';
 import type { Customer, PaymentRecord } from '@/lib/db/types';
 
 export class CustomerService {
@@ -9,7 +10,7 @@ export class CustomerService {
     phone: string,
     address?: string,
     openingDueMinor: number = 0,
-    businessId: string = 'demo-business-001'
+    businessId: string = getBusinessId()
   ): Promise<Customer> {
     const now = new Date().toISOString();
     const localId = uuidv4();
@@ -39,7 +40,7 @@ export class CustomerService {
     customerLocalId: string,
     amountMinor: number,
     method: 'cash' | 'bkash' | 'nagad' | 'card' = 'cash',
-    businessId: string = 'demo-business-001'
+    businessId: string = getBusinessId()
   ): Promise<PaymentRecord> {
     const now = new Date().toISOString();
     const paymentId = uuidv4();

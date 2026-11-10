@@ -1,6 +1,7 @@
 import { db } from '@/lib/db/dexie/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { SyncQueueManager } from '@/lib/sync/queue';
+import { getBusinessId, getBranchId } from '@/lib/auth/context';
 import type { Product, StockMovement, ProductCategory } from '@/lib/db/types';
 import { productSchema, stockMovementSchema, type ProductFormValues } from '@/lib/validation/product';
 
@@ -10,8 +11,8 @@ export class InventoryService {
    */
   static async createProduct(
     values: ProductFormValues,
-    businessId: string = 'demo-business-001',
-    branchId: string = 'demo-branch-001'
+    businessId: string = getBusinessId(),
+    branchId: string = getBranchId()
   ): Promise<Product> {
     const validated = productSchema.parse(values);
     const now = new Date().toISOString();
@@ -91,8 +92,8 @@ export class InventoryService {
     productId: string,
     qtyDelta: number,
     type: StockMovement['type'],
-    businessId: string = 'demo-business-001',
-    branchId: string = 'demo-branch-001',
+    businessId: string = getBusinessId(),
+    branchId: string = getBranchId(),
     refType?: string,
     refId?: string
   ): Promise<StockMovement> {
@@ -133,12 +134,14 @@ export class InventoryService {
   }
 
   /**
-   * Search and filter products
+   * Search and filter products for active store
    */
-  static async searchProducts(query: string = '', categoryId?: string | null): Promise<Product[]> {
-    let collection = db.products.toCollection();
-
-    let items = await collection.toArray();
+  static async searchProducts(
+    query: string = '',
+    categoryId?: string | null,
+    businessId: string = getBusinessId()
+  ): Promise<Product[]> {
+    let items = await db.products.filter((p) => p.businessId === businessId).toArray();
 
     if (categoryId && categoryId !== 'all') {
       items = items.filter((p) => p.categoryId === categoryId);

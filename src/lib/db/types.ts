@@ -30,6 +30,7 @@ export interface UserProfile {
   branchId: string;
   fullName: string;
   email: string;
+  storeName?: string;
 }
 
 export interface ProductCategory extends BaseEntity {

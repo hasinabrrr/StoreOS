@@ -16,6 +16,7 @@ import { db } from "@/lib/db/dexie/schema";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueManager } from "@/lib/sync/queue";
 import { formatBDT, toMinorUnits } from "@/lib/domain/money";
+import { getBusinessId, getBranchId } from "@/lib/auth/context";
 import type { EmployeeRecord } from "@/lib/db/types";
 
 const ROLES: EmployeeRecord["role"][] = [
@@ -38,7 +39,10 @@ export default function EmployeesPage() {
   });
 
   const loadEmployees = async () => {
-    const list = await db.employees.toArray();
+    const businessId = getBusinessId();
+    const list = await db.employees
+      .filter((emp) => emp.businessId === businessId)
+      .toArray();
     setEmployees(list);
   };
 
@@ -56,8 +60,8 @@ export default function EmployeesPage() {
 
         const record: EmployeeRecord = {
           localId,
-          businessId: "demo-business-001",
-          branchId: "demo-branch-001",
+          businessId: getBusinessId(),
+          branchId: getBranchId(),
           name: newEmp.name,
           role: newEmp.role,
           phone: newEmp.phone,

@@ -15,6 +15,7 @@ import {
 import { db } from "@/lib/db/dexie/schema";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueManager } from "@/lib/sync/queue";
+import { getBusinessId } from "@/lib/auth/context";
 import type { BranchRecord } from "@/lib/db/types";
 
 export default function BranchesPage() {
@@ -30,7 +31,10 @@ export default function BranchesPage() {
   });
 
   const loadBranches = async () => {
-    const list = await db.branches.toArray();
+    const businessId = getBusinessId();
+    const list = await db.branches
+      .filter((b) => b.businessId === businessId)
+      .toArray();
     const meta = await db.meta.get("branchName");
     if (meta?.value) {
       setCurrentBranchName(meta.value);
@@ -62,7 +66,7 @@ export default function BranchesPage() {
 
         const record: BranchRecord = {
           localId,
-          businessId: "demo-business-001",
+          businessId: getBusinessId(),
           name: newBranch.name,
           address: newBranch.address,
           phone: newBranch.phone,

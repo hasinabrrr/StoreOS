@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { TopHeader } from "@/components/shared/TopHeader";
@@ -19,34 +19,95 @@ import {
 import { seedInitialDemoData } from "@/lib/db/dexie/seed";
 import { db } from "@/lib/db/dexie/schema";
 import { formatBDT } from "@/lib/domain/money";
-import type { Product, SalesInvoice } from "@/lib/db/types";
+import { getBusinessId, getUserName } from "@/lib/auth/context";
+import type { Product, SalesInvoice, Customer } from "@/lib/db/types";
 
 export default function DashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
-  const [customerCount, setCustomerCount] = useState(0);
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const businessId = getBusinessId();
+  const ownerName = getUserName();
+
+  const loadData = useCallback(async () => {
+    await seedInitialDemoData();
+
+    const p = await db.products.filter((prod) => prod.businessId === businessId).toArray();
+    const inv = await db.salesInvoices.filter((i) => i.businessId === businessId).toArray();
+    const c = await db.customers.filter((cust) => cust.businessId === businessId).toArray();
+
+    setProducts(p);
+    setInvoices(inv);
+    setAllCustomers(c);
+    setIsLoading(false);
+  }, [businessId]);
 
   useEffect(() => {
-    async function loadData() {
-      await seedInitialDemoData();
-      const p = await db.products.toArray();
-      const inv = await db.salesInvoices.toArray();
-      const c = await db.customers.count();
-      setProducts(p);
-      setInvoices(inv);
-      setCustomerCount(c);
-    }
     loadData();
-  }, []);
 
+    // Listen for Dexie changes to auto-refresh dashboard
+    const onCreating = () => {
+      setTimeout(loadData, 200);
+    };
+    db.salesInvoices.hook("creating", onCreating);
+
+    return () => {
+      db.salesInvoices.hook("creating").unsubscribe(onCreating);
+    };
+  }, [loadData]);
+
+  // Date and Time-sensitive KPIs stored in state to satisfy Next.js client prerender rules
+  const [todayDate, setTodayDate] = useState("");
+  const [todaysSalesMinor, setTodaysSalesMinor] = useState(0);
+  const [todaysInvoicesCount, setTodaysInvoicesCount] = useState(0);
+  const [todaysExpensesMinor, setTodaysExpensesMinor] = useState(0);
+  const [salesByDay, setSalesByDay] = useState<{ day: string; totalMinor: number }[]>([]);
+
+  useEffect(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    setTodayDate(now.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" }));
+
+    const todayInvs = invoices.filter((i) => i.createdAt.slice(0, 10) === todayStr);
+    setTodaysSalesMinor(todayInvs.reduce((sum, i) => sum + i.totalMinor, 0));
+    setTodaysInvoicesCount(todayInvs.length);
+
+    // 7-day chart series
+    const chartDays: { day: string; totalMinor: number }[] = [];
+    for (let d = 6; d >= 0; d--) {
+      const dObj = new Date(now);
+      dObj.setDate(dObj.getDate() - d);
+      const dStr = dObj.toISOString().slice(0, 10);
+      const label = dObj.toLocaleDateString("en", { month: "short", day: "numeric" });
+      const total = invoices
+        .filter((i) => i.createdAt.slice(0, 10) === dStr)
+        .reduce((sum, i) => sum + i.totalMinor, 0);
+      chartDays.push({ day: label, totalMinor: total });
+    }
+    setSalesByDay(chartDays);
+
+    async function loadExpenses() {
+      const expenses = await db.expenses
+        .filter((e) => e.businessId === businessId && e.createdAt.slice(0, 10) === todayStr)
+        .toArray();
+      setTodaysExpensesMinor(expenses.reduce((sum, e) => sum + e.amountMinor, 0));
+    }
+    loadExpenses();
+  }, [invoices, businessId]);
+
+  // Computed KPIs
   const lowStockItems = products.filter((p) => p.currentStock <= p.lowStockThreshold);
+  const totalDueMinor = allCustomers.reduce((sum, c) => sum + c.totalDueMinor, 0);
+  const customersWithDue = allCustomers.filter((c) => c.totalDueMinor > 0).length;
+  const maxDaySales = Math.max(...salesByDay.map((d) => d.totalMinor), 1);
+  const todaysProfitMinor = todaysSalesMinor - todaysExpensesMinor;
+  const recentInvoices = [...invoices].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      {/* Desktop Sidebar */}
       <Sidebar />
-
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <TopHeader />
 
@@ -56,12 +117,12 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
               <p className="text-sm text-slate-500 mt-0.5">
-                Welcome back, John! Here&apos;s what&apos;s happening with your store today.
+                Welcome back, {ownerName.split(" ")[0]}! Here&apos;s what&apos;s happening with your store today.
               </p>
             </div>
             <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 shadow-sm">
               <span>📅</span>
-              <span>Today (Apr 26, 2025)</span>
+              <span>Today ({todayDate})</span>
             </div>
           </div>
 
@@ -76,12 +137,11 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">৳ 24,850</span>
+                <span className="text-2xl font-bold text-slate-900">{formatBDT(todaysSalesMinor)}</span>
               </div>
               <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>12%</span>
-                <span className="text-slate-400 font-normal">vs yesterday (৳ 22,130)</span>
+                <span>{todaysInvoicesCount} invoice{todaysInvoicesCount !== 1 ? "s" : ""} today</span>
               </div>
             </div>
 
@@ -94,11 +154,11 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{products.length || 156}</span>
+                <span className="text-2xl font-bold text-slate-900">{products.length}</span>
               </div>
               <div className="mt-2 flex items-center gap-1.5 text-xs text-rose-500 font-medium">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Low Stock: {lowStockItems.length || 6}</span>
+                <span>Low Stock: {lowStockItems.length}</span>
               </div>
             </div>
 
@@ -111,12 +171,11 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{customerCount || 48}</span>
+                <span className="text-2xl font-bold text-slate-900">{allCustomers.length}</span>
               </div>
               <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>5%</span>
-                <span className="text-slate-400 font-normal">New Today: 3</span>
+                <span>{customersWithDue} with outstanding dues</span>
               </div>
             </div>
 
@@ -129,51 +188,34 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">৳ 8,750</span>
+                <span className="text-2xl font-bold text-slate-900">{formatBDT(totalDueMinor)}</span>
               </div>
               <div className="mt-2 text-xs text-slate-500">
-                From <span className="font-medium text-slate-700">7 customers</span>
+                From <span className="font-medium text-slate-700">{customersWithDue} customer{customersWithDue !== 1 ? "s" : ""}</span>
               </div>
             </div>
           </div>
 
           {/* Grid: Sales Analytics + Today's Summary & Low Stock */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Sales Chart Container */}
+            {/* Sales Chart */}
             <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-semibold text-slate-900">Sales Overview</h3>
-                  <p className="text-xs text-slate-500">Apr 20 - Apr 26, 2025</p>
-                </div>
-                <div className="flex gap-1 bg-slate-100 p-1 rounded-lg text-xs">
-                  <button className="px-3 py-1 bg-blue-600 text-white rounded font-medium shadow-xs">
-                    Sales
-                  </button>
-                  <button className="px-3 py-1 text-slate-600 hover:text-slate-900 rounded font-medium">
-                    Profit
-                  </button>
+                  <p className="text-xs text-slate-500">Last 7 days</p>
                 </div>
               </div>
 
-              {/* Simplified Visual Trend Graph */}
               <div className="h-56 w-full flex items-end gap-3 pt-6 pb-2 border-b border-slate-100 px-2">
-                {[
-                  { day: "Apr 20", val: 30 },
-                  { day: "Apr 21", val: 42 },
-                  { day: "Apr 22", val: 55 },
-                  { day: "Apr 23", val: 48 },
-                  { day: "Apr 24", val: 65 },
-                  { day: "Apr 25", val: 58 },
-                  { day: "Apr 26", val: 82 },
-                ].map((item) => (
+                {salesByDay.map((item) => (
                   <div key={item.day} className="flex-1 flex flex-col items-center gap-2 group">
                     <div
-                      style={{ height: `${item.val * 2}px` }}
+                      style={{ height: `${Math.max(4, (item.totalMinor / maxDaySales) * 160)}px` }}
                       className="w-full bg-blue-500/20 group-hover:bg-blue-600 transition-all rounded-t-md relative flex items-start justify-center"
                     >
                       <span className="opacity-0 group-hover:opacity-100 text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded -top-6 absolute transition-all">
-                        {item.val * 350}
+                        {formatBDT(item.totalMinor)}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 font-medium">{item.day}</span>
@@ -184,30 +226,26 @@ export default function DashboardPage() {
 
             {/* Today's Summary + Quick Actions */}
             <div className="space-y-6">
-              {/* Today's Summary Card */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-semibold text-slate-900 mb-3">Today&apos;s Summary</h3>
                 <div className="space-y-2.5 text-xs">
                   <div className="flex items-center justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-500">Sales</span>
-                    <span className="font-semibold text-slate-900">৳ 24,850</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-500">Profit</span>
-                    <span className="font-semibold text-emerald-600">৳ 12,430</span>
+                    <span className="font-semibold text-slate-900">{formatBDT(todaysSalesMinor)}</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-500">Expenses</span>
-                    <span className="font-semibold text-rose-500">৳ 3,200</span>
+                    <span className="font-semibold text-rose-500">{formatBDT(todaysExpensesMinor)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-1 font-bold text-slate-900">
                     <span>Net Profit</span>
-                    <span>৳ 9,230</span>
+                    <span className={todaysProfitMinor >= 0 ? "text-emerald-600" : "text-rose-600"}>
+                      {formatBDT(todaysProfitMinor)}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Quick Actions */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-semibold text-slate-900 mb-3">Quick Actions</h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -246,11 +284,10 @@ export default function DashboardPage() {
 
           {/* Lower Section: Recent Sales + Low Stock Alerts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recent Sales Table */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-slate-900">Recent Sales</h3>
-                <button className="text-xs text-blue-600 font-medium hover:underline">View All →</button>
+                <Link href="/sales" className="text-xs text-blue-600 font-medium hover:underline">View All →</Link>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -263,34 +300,41 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {invoices.map((inv) => (
-                      <tr key={inv.localId} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 font-medium text-slate-900">{inv.invoiceNo}</td>
-                        <td className="py-2.5 text-slate-600">{inv.customerName || "walk-in"}</td>
-                        <td className="py-2.5 font-medium text-slate-900">{formatBDT(inv.totalMinor)}</td>
-                        <td className="py-2.5 text-right">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              inv.status === "paid"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-amber-50 text-amber-700"
-                            }`}
-                          >
-                            {inv.status}
-                          </span>
-                        </td>
+                    {recentInvoices.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-slate-400">No sales yet. Start selling from POS!</td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentInvoices.map((inv) => (
+                        <tr key={inv.localId} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 font-medium text-slate-900">{inv.invoiceNo}</td>
+                          <td className="py-2.5 text-slate-600">{inv.customerName || "walk-in"}</td>
+                          <td className="py-2.5 font-medium text-slate-900">{formatBDT(inv.totalMinor)}</td>
+                          <td className="py-2.5 text-right">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                inv.status === "paid"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : inv.status === "void"
+                                  ? "bg-rose-50 text-rose-700"
+                                  : "bg-amber-50 text-amber-700"
+                              }`}
+                            >
+                              {inv.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Low Stock Alerts */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-slate-900">Low Stock Products</h3>
-                <button className="text-xs text-blue-600 font-medium hover:underline">View All →</button>
+                <Link href="/inventory" className="text-xs text-blue-600 font-medium hover:underline">View All →</Link>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -302,17 +346,23 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {lowStockItems.map((prod) => (
-                      <tr key={prod.localId} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 font-medium text-slate-900">{prod.name}</td>
-                        <td className="py-2.5 text-rose-600 font-semibold">{prod.currentStock} {prod.unit}</td>
-                        <td className="py-2.5 text-right">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700">
-                            Low
-                          </span>
-                        </td>
+                    {lowStockItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="py-6 text-center text-slate-400">All products are well-stocked!</td>
                       </tr>
-                    ))}
+                    ) : (
+                      lowStockItems.map((prod) => (
+                        <tr key={prod.localId} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 font-medium text-slate-900">{prod.name}</td>
+                          <td className="py-2.5 text-rose-600 font-semibold">{prod.currentStock} {prod.unit}</td>
+                          <td className="py-2.5 text-right">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700">
+                              Low
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
